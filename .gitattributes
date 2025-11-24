@@ -1,27 +1,31 @@
 # =======================================
-# Line endings
+# Line endings (normalize across systems)
 # =======================================
-# Convert all text files to LF in repo, CRLF in Windows working copy
 * text=auto
 
-# Explicitly treat certain file types as text
-*.dart text
-*.kt text
-*.java text
+# =======================================
+# Text file types
+# =======================================
+*.dart   text
+*.kt     text
+*.java   text
 *.gradle text
-*.kts text
-*.xml text
-*.plist text
-*.yaml text
-*.json text
-*.md text
-*.html text
-*.css text
-*.js text
-*.sh text
-*.bat text
+*.kts    text
+*.xml    text
+*.plist  text
+*.yaml   text
+*.yml    text
+*.json   text
+*.md     text
+*.html   text
+*.css    text
+*.js     text
+*.sh     text eol=lf
+*.bat    text eol=crlf
 
-# Force binary for certain file types
+# =======================================
+# Binary file types
+# =======================================
 *.png binary
 *.jpg binary
 *.jpeg binary
@@ -45,14 +49,13 @@
 *.iws text eol=lf
 
 # =======================================
-# Flutter / Dart specific
+# Flutter / Dart related
 # =======================================
 **/doc/api/ text
 **/generated_plugin_registrant.dart text
 .dart_tool/ -text
 .flutter-plugins -text
 .flutter-plugins-dependencies -text
-.packages -text
 .pub/ -text
 build/ -text
 coverage/ -text
@@ -96,11 +99,3 @@ coverage/ -text
 # Linux
 # =======================================
 **/linux/flutter/generated_plugin_registrant.* text
-
-# =======================================
-# Exceptions: keep these files as-is
-# =======================================
-!**/ios/**/default.mode1v3
-!**/ios/**/default.mode2v3
-!**/ios/**/default.pbxuser
-!**/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
