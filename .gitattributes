@@ -1,0 +1,106 @@
+# =======================================
+# Line endings
+# =======================================
+# Convert all text files to LF in repo, CRLF in Windows working copy
+* text=auto
+
+# Explicitly treat certain file types as text
+*.dart text
+*.kt text
+*.java text
+*.gradle text
+*.kts text
+*.xml text
+*.plist text
+*.yaml text
+*.json text
+*.md text
+*.html text
+*.css text
+*.js text
+*.sh text
+*.bat text
+
+# Force binary for certain file types
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.jar binary
+*.keystore binary
+*.p12 binary
+*.app binary
+*.framework binary
+*.zip binary
+*.flx binary
+
+# =======================================
+# IDE / Editor
+# =======================================
+*.iml text eol=lf
+*.ipr text eol=lf
+*.iws text eol=lf
+
+# =======================================
+# Flutter / Dart specific
+# =======================================
+**/doc/api/ text
+**/generated_plugin_registrant.dart text
+.dart_tool/ -text
+.flutter-plugins -text
+.flutter-plugins-dependencies -text
+.packages -text
+.pub/ -text
+build/ -text
+coverage/ -text
+
+# =======================================
+# Android
+# =======================================
+**/android/**/gradle-wrapper.jar -text
+**/android/**/GeneratedPluginRegistrant.java text
+**/android/key.properties -text
+*.jks -text
+/android/app/debug/ -text
+/android/app/profile/ -text
+/android/app/release/ -text
+
+# =======================================
+# iOS / Xcode
+# =======================================
+**/ios/**/*.mode1v3 -text
+**/ios/**/*.mode2v3 -text
+**/ios/**/*.pbxuser -text
+**/ios/**/*.perspectivev3 -text
+**/ios/**/Pods/ -text
+**/ios/**/.symlinks/ -text
+**/ios/**/xcuserdata/ -text
+**/ios/Flutter/* -text
+**/ios/Runner/GeneratedPluginRegistrant.* text
+
+# =======================================
+# macOS
+# =======================================
+**/macos/Flutter/GeneratedPluginRegistrant.swift text
+**/macos/Flutter/ephemeral/ -text
+
+# =======================================
+# Windows
+# =======================================
+**/windows/flutter/generated_plugin_registrant.* text
+
+# =======================================
+# Linux
+# =======================================
+**/linux/flutter/generated_plugin_registrant.* text
+
+# =======================================
+# Exceptions: keep these files as-is
+# =======================================
+!**/ios/**/default.mode1v3
+!**/ios/**/default.mode2v3
+!**/ios/**/default.pbxuser
+!**/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
