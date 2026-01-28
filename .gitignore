@@ -127,8 +127,8 @@ migrate_working_dir/
 # Firebase configuration (private)
 # =======================================
 google-services.json
-firebase_options.dart
-storage_service.dart
+# firebase_options.dart
+# storage_service.dart
 
 # =======================================
 # Exceptions (do not ignore)
