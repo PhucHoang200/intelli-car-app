@@ -1,0 +1,65 @@
+name: Flutter CI (Android Debug)
+
+on:
+  # Chạy CI khi có Pull Request vào main (check trước khi merge)
+  pull_request:
+    branches:
+      - main
+
+  # Chạy CI khi main thay đổi (sau khi merge PR)
+  push:
+    branches:
+      - main
+
+jobs:
+  flutter-ci:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      # 1. Checkout source code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Setup Flutter (phù hợp SDK >=3.0.0 <4.0.0)
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+          channel: 'stable'
+          cache: true
+
+      # 3. Restore Flutter dependencies
+      - name: Install dependencies
+        run: flutter pub get
+
+      # 4. Inject Firebase config (BẮT BUỘC)
+      - name: Add google-services.json
+        run: |
+          mkdir -p android/app
+          echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > android/app/google-services.json
+
+      # 5. Analyze Dart code (luôn chạy)
+      - name: Analyze project
+        run: flutter analyze
+
+      # 6. Run widget tests (chỉ chạy khi PR)
+      - name: Run tests
+        if: github.event_name == 'pull_request'
+        run: flutter test
+
+      # 7. Build APK debug (chỉ build sau khi merge vào main)
+      - name: Build APK (debug)
+        if: github.event_name == 'push'
+        run: flutter build apk --debug
+
+      # 8. Upload APK artifact
+      - name: Upload APK artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: online-car-marketplace-debug-apk
+          path: frontend/build/app/outputs/flutter-apk/app-debug.apk
