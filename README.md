@@ -162,6 +162,18 @@ flutter run
 
 ---
 
+## 🔄 CI/CD & DevOps
+
+Dự án sử dụng **GitHub Actions** để tự động kiểm tra và build ứng dụng Flutter.
+
+- CI: kiểm tra code, chạy test khi tạo Pull Request
+- CD: build APK debug khi merge vào `main`
+
+📄 Tài liệu chi tiết:  
+➡️ [CI/CD Pipeline Documentation](docs/CI-CD.md)
+
+---
+
 ## 🚧 Phạm vi & giới hạn
 
 * Ứng dụng chỉ chạy trên **thiết bị di động**
