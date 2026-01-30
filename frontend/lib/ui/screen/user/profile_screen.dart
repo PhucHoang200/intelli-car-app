@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:online_car_marketplace_app/providers/user_provider.dart';
@@ -111,6 +112,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       await userProvider.updateUserProfile(context, updatedUser);
       _loadUserData();
+    }
+  }
+
+  // Thêm hàm này vào trong class _ProfileScreenState
+  Future<void> _handleLogout(UserProvider userProvider) async {
+    // Hiển thị hộp thoại xác nhận trước khi đăng xuất
+    bool confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xác nhận'),
+        content: const Text('Bạn có chắc chắn muốn đăng xuất không?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Đăng xuất', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    ) ?? false;
+
+    if (confirm && mounted) {
+      // Gọi hàm logout từ UserProvider (Đảm bảo trong UserProvider đã có hàm logout)
+      await userProvider.logout();
+
+      // Điều hướng về trang Login
+      if (mounted) {
+        GoRouter.of(context).go('/login');
+      }
     }
   }
 
@@ -262,9 +295,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _ProfileOptionItem(
                         icon: Icons.logout,
                         label: "Đăng xuất",
-                        onTap: () {
-                          // Xử lý logout
-                        },
+                        onTap: () => _handleLogout(userProvider),
                       ),
                     ],
                   ),

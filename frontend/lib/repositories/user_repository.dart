@@ -148,8 +148,14 @@ class UserRepository {
     }
   }
 
+  // Repository
   Future<void> logout() async {
-    await _auth.signOut();
+    try {
+      await _auth.signOut();
+    } catch (e) {
+      // Nên ném lỗi hoặc trả về log để Provider biết có sự cố
+      throw Exception("Không thể đăng xuất từ Firebase: $e");
+    }
   }
 
   Future<Map<String, dynamic>> registerUser(User user, String password) async {
