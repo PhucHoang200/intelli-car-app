@@ -154,11 +154,22 @@ class UserProvider with ChangeNotifier {
     }
   }
 
+  // Provider
   Future<void> logout() async {
-    await _userRepository.logout();
-    _currentUser = null;
-    _isAuthenticated = false;
-    notifyListeners();
+    try {
+      // 1. Gọi Repo để xóa session trên Firebase trước
+      await _userRepository.logout();
+    } catch (e) {
+      print("Lỗi khi gọi repo logout: $e");
+    } finally {
+      // 2. Dù Repo có lỗi hay không, ta VẪN nên xóa state cục bộ
+      // để đảm bảo người dùng không bị kẹt ở màn hình cũ
+      _currentUser = null;
+      _isAuthenticated = false;
+
+      // 3. Thông báo cho các widget đang nghe (như ProfileScreen, HomeScreen)
+      notifyListeners();
+    }
   }
 
   Future<bool> sendPasswordResetEmail(String email) async {
