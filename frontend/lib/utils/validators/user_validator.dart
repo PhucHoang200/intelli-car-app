@@ -1,18 +1,21 @@
-
 class UserValidator {
   static String validateName(String name) {
-    if (name.isEmpty || name.length < 1 || name.length > 50) {
-      throw Exception('Tên tài khoản không hợp lệ');
+    final trimmedName = name.trim(); // Loại bỏ khoảng trắng thừa
+    if (trimmedName.isEmpty || trimmedName.length > 50) {
+      throw Exception('Tên tài khoản không hợp lệ (1-50 ký tự)');
     }
-    return name;
+    return trimmedName;
   }
 
   static String validateStatus(String status) {
-    const allowedStatuses = ['Hoạt động', 'Khóa'];
+    // Thêm 'Chờ xác thực' vào danh sách cho phép
+    const allowedStatuses = ['Hoạt động', 'Khóa', 'Chờ xác thực'];
+
     if (!allowedStatuses.contains(status)) {
+      // Log ra giá trị thực tế đang bị lỗi để dễ debug nếu vẫn lỗi
+      print("Giá trị status không hợp lệ: '$status'");
       throw Exception('Trạng thái không hợp lệ');
     }
     return status;
   }
-
 }

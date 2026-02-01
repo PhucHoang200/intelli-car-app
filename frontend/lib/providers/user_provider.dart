@@ -130,25 +130,65 @@ class UserProvider with ChangeNotifier {
     }
   }
 
+  // Future<bool> login(String email, String password) async {
+  //   _isLoading = true;
+  //   _errorMessage = null;
+  //
+  //   try {
+  //     final result = await _userRepository.login(email, password);
+  //     _isLoading = false;
+  //
+  //     if (result['success']) {
+  //       _currentUser = result['user'];
+  //       _isAuthenticated = true;
+  //     } else {
+  //       _errorMessage = result['message'];
+  //     }
+  //     notifyListeners();
+  //     return result['success'];
+  //   } catch (e) {
+  //     _isLoading = false;
+  //     _errorMessage = 'Email hoặc mật khẩu không chính xác. Vui lòng nhập lại!';
+  //     notifyListeners();
+  //     return false;
+  //   }
+  // }
+
   Future<bool> login(String email, String password) async {
     _isLoading = true;
     _errorMessage = null;
+    notifyListeners();
 
     try {
       final result = await _userRepository.login(email, password);
-      _isLoading = false;
 
       if (result['success']) {
+        auth.User? user = _userRepository.getCurrentAuthUser();
+
+        // KIỂM TRA XÁC THỰC EMAIL TẠI ĐÂY
+        if (user != null && !user.emailVerified) {
+          _isLoading = false;
+          _errorMessage = 'Email chưa được xác thực. Hãy xác thực trước khi đăng nhập.';
+          // Tùy chọn: Có thể tự động logout ở đây để đảm bảo session sạch
+          // await logout();
+          notifyListeners();
+          return false; // Trả về false để UI biết là không cho vào App
+        }
+
         _currentUser = result['user'];
         _isAuthenticated = true;
+        _isLoading = false;
+        notifyListeners();
+        return true;
       } else {
         _errorMessage = result['message'];
+        _isLoading = false;
+        notifyListeners();
+        return false;
       }
-      notifyListeners();
-      return result['success'];
     } catch (e) {
       _isLoading = false;
-      _errorMessage = 'Email hoặc mật khẩu không chính xác. Vui lòng nhập lại!';
+      _errorMessage = 'Lỗi hệ thống khi đăng nhập.';
       notifyListeners();
       return false;
     }
@@ -236,16 +276,50 @@ class UserProvider with ChangeNotifier {
     return false;
   }
 
-  Future<Map<String, dynamic>> checkEmailVerification(BuildContext context) async {
-    setLoading(true);
-    final result = await _userRepository.checkEmailVerification();
-    setLoading(false);
+  // Future<Map<String, dynamic>> checkEmailVerification(BuildContext context) async {
+  //   setLoading(true);
+  //   final result = await _userRepository.checkEmailVerification();
+  //   setLoading(false);
+  //
+  //   if (!result['success']) {
+  //     _errorMessage = result['message'];
+  //     notifyListeners();
+  //   }
+  //   return result; // Trả về toàn bộ map kết quả
+  // }
 
-    if (!result['success']) {
-      _errorMessage = result['message'];
+  Future<Map<String, dynamic>> checkEmailVerification(BuildContext context) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // 1. Lấy user hiện tại từ Repo
+      auth.User? user = _userRepository.getCurrentAuthUser();
+
+      if (user != null) {
+        // 2. BUỘC cập nhật dữ liệu mới nhất từ Firebase Server
+        await user.reload();
+        // 3. Lấy lại instance mới sau khi reload
+        user = _userRepository.getCurrentAuthUser();
+
+        if (user != null && user.emailVerified) {
+          _isLoading = false;
+          _errorMessage = null;
+          notifyListeners();
+          return {'success': true, 'message': 'Xác thực thành công!'};
+        }
+      }
+
+      _isLoading = false;
+      _errorMessage = 'Email chưa được xác thực. Vui lòng kiểm tra hộp thư.';
       notifyListeners();
+      return {'success': false, 'message': _errorMessage};
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = 'Lỗi kiểm tra xác thực: $e';
+      notifyListeners();
+      return {'success': false, 'message': _errorMessage};
     }
-    return result; // Trả về toàn bộ map kết quả
   }
 
   Future<void> resendVerificationEmail(BuildContext context) async {
