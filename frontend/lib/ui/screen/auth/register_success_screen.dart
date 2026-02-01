@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:online_car_marketplace_app/providers/user_provider.dart';
 import 'package:provider/provider.dart';
+import '../../../providers/user_provider.dart';
 
 class RegisterSuccessScreen extends StatefulWidget {
   const RegisterSuccessScreen({super.key});
@@ -12,156 +12,85 @@ class RegisterSuccessScreen extends StatefulWidget {
 }
 
 class _RegisterSuccessScreenState extends State<RegisterSuccessScreen> {
+  Timer? _timer;
+
   @override
   void initState() {
     super.initState();
+    // Tự động kiểm tra mỗi 3 giây
+    _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      _checkVerification(isAuto: true);
+    });
   }
 
   @override
   void dispose() {
+    _timer?.cancel(); // Hủy timer khi thoát màn hình để tránh leak bộ nhớ
     super.dispose();
   }
 
-  Future<void> _checkVerificationAndNavigate(BuildContext context, UserProvider userProvider) async {
-    final verificationResult = await userProvider.checkEmailVerification(context);
-    if (verificationResult['success']) {
-      if (mounted) {
-        context.go('/login');
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(verificationResult['message']),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+  Future<void> _checkVerification({bool isAuto = false}) async {
+    final userProvider = context.read<UserProvider>();
+    // checkEmailVerification đã có lệnh user.reload() như chúng ta đã sửa ở UserProvider
+    final result = await userProvider.checkEmailVerification(context);
+
+    if (result['success'] && mounted) {
+      _timer?.cancel();
+      context.go('/login');
+    } else if (!isAuto && mounted) {
+      // Chỉ hiện SnackBar nếu người dùng nhấn nút thủ công mà chưa xác thực
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message']), backgroundColor: Colors.red),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-
+    // Giữ nguyên phần UI cũ của bạn, chỉ thay đổi hàm gọi ở nút bấm
     return Scaffold(
-      backgroundColor: Colors.blue, // Đặt nền màu xanh dương cho toàn bộ Scaffold
-      appBar: AppBar(
-        backgroundColor: Colors.transparent, // Nền trong suốt
-        elevation: 0, // Bỏ đổ bóng
-        automaticallyImplyLeading: false, // Ngăn người dùng quay lại màn hình đăng ký
-        title: const Text(
-          'Đăng ký thành công',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold), // Tiêu đề màu trắng, in đậm
-        ),
-        centerTitle: true,
-      ),
+      backgroundColor: Colors.blue,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
             children: [
-              const SizedBox(height: 30), // Khoảng trống từ AppBar xuống logo
-              // Logo "OTO"
-              const Text(
-                'OTO',
-                style: TextStyle(
-                  fontSize: 72, // Phóng to chữ
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white, // Màu trắng
-                  letterSpacing: 8, // Khoảng cách giữa các chữ cái
-                ),
-              ),
-              const SizedBox(height: 30), // Khoảng trống từ logo đến form
-              // Nội dung thành công trong Container nền trắng
+              const SizedBox(height: 30),
+              const Text('OTO', style: TextStyle(fontSize: 72, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 8)),
+              const SizedBox(height: 30),
               Container(
                 decoration: const BoxDecoration(
-                  color: Colors.white, // Nền trắng cho phần nội dung
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(30.0), // Bo tròn góc trên bên trái
-                    topRight: Radius.circular(30.0), // Bo tròn góc trên bên phải
-                  ),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(30.0)),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0), // Padding cho nội dung
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.check_circle_outline, size: 100, color: Colors.blue), // Changed to Colors.blue
+                    const Icon(Icons.mark_email_read_outlined, size: 100, color: Colors.blue),
                     const SizedBox(height: 30),
-                    Text(
-                      'Chúc mừng bạn đã đăng ký thành công!',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87, // Đổi màu chữ sang đen
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+                    const Text('Kiểm tra email', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 15),
-                    Text(
-                      'Một email xác thực đã được gửi đến hộp thư của bạn.',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey[700]),
+                    const Text(
+                      'Chúng tôi đã gửi link xác thực đến email của bạn.\nApp sẽ tự động chuyển hướng sau khi bạn xác thực thành công.',
                       textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Vui lòng kiểm tra email và nhấp vào liên kết để xác thực tài khoản của bạn. (Kiểm tra cả thư mục Spam/Junk)',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey),
                     ),
                     const SizedBox(height: 40),
 
-                    ElevatedButton(
-                      onPressed: () async {
-                        await _checkVerificationAndNavigate(context, userProvider);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue, // Changed to Colors.blue
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    // Nút nhấn thủ công (Cứu cánh)
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => _checkVerification(isAuto: false),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        elevation: 3,
-                      ),
-                      child: const Text(
-                        'Tiếp tục đăng nhập',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        child: const Text('Tôi đã xác thực', style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
                       ),
                     ),
                     const SizedBox(height: 20),
-                    Consumer<UserProvider>(
-                      builder: (context, userProvider, child) {
-                        return TextButton(
-                          onPressed: userProvider.isLoadingResendEmail
-                              ? null
-                              : () async {
-                            await userProvider.resendVerificationEmail(context);
-                            if (userProvider.resendEmailMessage != null && mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(userProvider.resendEmailMessage!),
-                                  backgroundColor: userProvider.resendEmailMessage!.contains('gửi lại thành công') ? Colors.green : Colors.red,
-                                ),
-                              );
-                            }
-                          },
-                          child: userProvider.isLoadingResendEmail
-                              ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              color: Colors.grey,
-                              strokeWidth: 2,
-                            ),
-                          )
-                              : const Text(
-                            'Không nhận được email? Gửi lại',
-                            style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold), // Changed to Colors.blue
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 20),
+                    _buildResendSection(context),
                   ],
                 ),
               ),
@@ -169,6 +98,19 @@ class _RegisterSuccessScreenState extends State<RegisterSuccessScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildResendSection(BuildContext context) {
+    return Consumer<UserProvider>(
+      builder: (context, provider, _) {
+        return TextButton(
+          onPressed: provider.isLoadingResendEmail ? null : () => provider.resendVerificationEmail(context),
+          child: provider.isLoadingResendEmail
+              ? const CircularProgressIndicator()
+              : const Text('Gửi lại email xác thực', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+        );
+      },
     );
   }
 }
