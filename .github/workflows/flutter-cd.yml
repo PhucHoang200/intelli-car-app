@@ -1,0 +1,58 @@
+name: Flutter CD (Firebase App Distribution)
+
+on:
+  push:
+    tags:
+      - "v*.*.*" # ví dụ: v1.0.0
+
+jobs:
+  deploy-android:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      # 1. Checkout source
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Setup Flutter
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.8"
+          channel: stable
+          cache: true
+
+      # 3. Clean cache (an toàn khi build release)
+      - name: Clean Flutter & Gradle cache
+        run: |
+          flutter clean
+          rm -rf ~/.gradle/caches
+          rm -rf ~/.gradle/wrapper
+
+      # 4. Install dependencies
+      - name: Install dependencies
+        run: flutter pub get
+
+      # 5. Inject google-services.json (Android)
+      - name: Inject Firebase config
+        run: |
+          mkdir -p android/app
+          echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" \
+            | base64 --decode > android/app/google-services.json
+
+      # 6. Build APK release
+      - name: Build APK (release)
+        run: flutter build apk --release
+
+      # 7. Upload APK to Firebase App Distribution
+      - name: Deploy to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          token: ${{ secrets.FIREBASE_TOKEN }}
+          groups: testers
+          file: frontend/build/app/outputs/flutter-apk/app-release.apk
