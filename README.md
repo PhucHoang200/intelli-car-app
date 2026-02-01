@@ -166,8 +166,8 @@ flutter run
 
 Dự án sử dụng **GitHub Actions** để tự động kiểm tra và build ứng dụng Flutter.
 
-- CI: kiểm tra code, chạy test khi tạo Pull Request
-- CD: build APK debug khi merge vào `main`
+- **CI**: chạy analyze & test khi tạo Pull Request
+- **CD**: build APK release và deploy lên **Firebase App Distribution** khi tạo tag
 
 📄 Tài liệu chi tiết:  
 ➡️ [CI/CD Pipeline Documentation](docs/CI-CD.md)
