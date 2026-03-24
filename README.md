@@ -41,7 +41,8 @@ Hệ thống được xây dựng theo mô hình:
 - **Firebase Authentication**: xác thực người dùng.
 - **Firebase Firestore**: lưu trữ dữ liệu người dùng và tin đăng.
 - **Cloudinary**: lưu trữ và tối ưu hình ảnh xe và ảnh đại diện.
-- **Django REST Framework**: cung cấp REST API cho chức năng tìm kiếm xe theo từ khóa.
+- **Django REST Framework**: cung cấp REST API cho chức năng tìm kiếm xe theo từ khóa  
+  ([View Repository](https://github.com/PhucHoang200/BE_API_Online_Car_Marketplace_App.git))
 
 > Ứng dụng không sử dụng backend phức tạp hoặc cơ sở dữ liệu quan hệ, phù hợp với quy mô đồ án và mục tiêu học tập.
 
