@@ -36,13 +36,12 @@ jobs:
       - name: Clean Flutter
         run: flutter clean
 
-      - name: Force Upgrade Kotlin Version to 2.3.0 on CI
+      - name: Force Upgrade Kotlin & Fix DSL for CI
         run: |
-          # Ép phiên bản Kotlin 2.3.0 qua file gradle.properties
+          # 1. Ép phiên bản Kotlin 2.3.0 qua file gradle.properties
           echo "kotlinVersion=2.3.0" >> android/gradle.properties
           
-          # Ép tất cả các module (bao gồm cả plugin của bên thứ 3) sử dụng đúng Kotlin 2.3.0
-          # Bằng cách nối thêm cấu hình vào cuối file android/build.gradle
+          # 2. Ép tất cả các module sử dụng Kotlin stdlib 2.3.0
           cat << 'EOF' >> android/build.gradle
 
           allprojects {
@@ -58,10 +57,10 @@ jobs:
           }
           EOF
 
-          # Nâng cấp classpath Kotlin plugin lên 2.3.0 cho build script (Dự án cũ)
-          sed -i -E "s/ext\.kotlin_version\s*=\s*['\"][^'\"]+['\"]/ext.kotlin_version = '2.3.0'/g" android/build.gradle
-          
-          # Nâng cấp ID plugin Kotlin lên 2.3.0 (Dự án mới dùng settings.gradle)
+          # 3. Nâng cấp plugin Kotlin lên 2.3.0
+          if [ -f android/build.gradle ]; then
+            sed -i -E "s/ext\.kotlin_version\s*=\s*['\"][^'\"]+['\"]/ext.kotlin_version = '2.3.0'/g" android/build.gradle
+          fi
           if [ -f android/settings.gradle ]; then
             sed -i -E 's/id\s*"org.jetbrains.kotlin.android"\s*version\s*"[^"]+"/id "org.jetbrains.kotlin.android" version "2.3.0"/g' android/settings.gradle
           fi
@@ -69,9 +68,22 @@ jobs:
             sed -i -E 's/id\s*\("org.jetbrains.kotlin.android"\)\s*version\s*"[^"]+"/id("org.jetbrains.kotlin.android") version "2.3.0"/g' android/settings.gradle.kts
           fi
 
+          # 4. SỬA LỖI MỚI: Fix lỗi "jvmTarget: String is an error" của Kotlin 2.x
+          # Vô hiệu hoá dòng jvmTarget cũ trong kotlinOptions
+          find android/app/ -name "build.gradle.kts" -exec sed -i -E 's/(jvmTarget\s*=\s*.+)/\/\/ \1 \/\/ Commented for Kotlin 2.x/g' {} +
+          find android/app/ -name "build.gradle" -exec sed -i -E 's/(jvmTarget\s*=\s*.+)/\/\/ \1 \/\/ Commented for Kotlin 2.x/g' {} +
+          
+          # Cấu hình chuẩn cho Kotlin 2.x (Chỉ định Toolchain 11)
+          if [ -f android/app/build.gradle.kts ]; then
+            echo "" >> android/app/build.gradle.kts
+            echo "kotlin { jvmToolchain(11) }" >> android/app/build.gradle.kts
+          elif [ -f android/app/build.gradle ]; then
+            echo "" >> android/app/build.gradle
+            echo "kotlin { jvmToolchain(11) }" >> android/app/build.gradle
+          fi
+
       - name: Install dependencies
         run: flutter pub get
-
       - name: Inject google-services.json
         run: |
           mkdir -p android/app
