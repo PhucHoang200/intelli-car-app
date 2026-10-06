@@ -3,7 +3,7 @@ name: Flutter CD (Firebase App Distribution)
 on:
   push:
     tags:
-      - "v*.*.*" # ví dụ: v1.0.0
+      - "v*.*.*"
 
 jobs:
   deploy-android:
@@ -14,18 +14,15 @@ jobs:
         working-directory: frontend
 
     steps:
-      # 1. Checkout source code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Setup Java Environment (Tránh lỗi biên dịch Kotlin/Gradle)
       - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # 3. Setup Flutter SDK
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -33,25 +30,36 @@ jobs:
           channel: stable
           cache: true
 
-      # 4. Clean project trước khi build release
       - name: Clean Flutter
         run: flutter clean
 
-      # 5. Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # 6. Inject Firebase config
+      # BƯỚC MỚI: Tự động ghi đè Kotlin version trong Gradle files ngay trên CI/CD
+      - name: Override Kotlin Version for CI
+        run: |
+          if [ -f android/settings.gradle.kts ]; then
+            sed -i -E 's/id\("org.jetbrains.kotlin.android"\) version "[^"]+"/id("org.jetbrains.kotlin.android") version "2.1.0"/' android/settings.gradle.kts
+          fi
+          if [ -f android/settings.gradle ]; then
+            sed -i -E 's/id "org.jetbrains.kotlin.android" version "[^"]+"/id "org.jetbrains.kotlin.android" version "2.1.0"/' android/settings.gradle
+          fi
+          if [ -f android/build.gradle.kts ]; then
+            sed -i -E 's/ext\.kotlin_version = "[^"]+"/ext.kotlin_version = "2.1.0"/' android/build.gradle.kts
+          fi
+          if [ -f android/build.gradle ]; then
+            sed -i -E "s/ext\.kotlin_version = '[^']+'/ext.kotlin_version = '2.1.0'/" android/build.gradle
+          fi
+
       - name: Inject Firebase config
         run: |
           mkdir -p android/app
           echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 --decode > android/app/google-services.json
 
-      # 7. Build APK release
       - name: Build APK (release)
         run: flutter build apk --release
 
-      # 8. Deploy to Firebase App Distribution
       - name: Deploy to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
