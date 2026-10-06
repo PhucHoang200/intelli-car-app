@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:online_car_marketplace_app/services/home_load_trace.dart';
+import 'package:online_car_marketplace_app/ui/widgets/user/home_measured_image.dart';
 import 'package:provider/provider.dart';
 import 'package:online_car_marketplace_app/models/favorite_model.dart';
 import 'package:online_car_marketplace_app/providers/favorite_provider.dart';
@@ -21,35 +23,84 @@ class BuyScreen extends StatefulWidget {
 }
 
 class _BuyScreenState extends State<BuyScreen> {
+  late final HomeLoadTrace? _homeTrace;
+  bool _initialPostsSettled = false;
+  bool _initialBrandsSettled = false;
+  int? _firstThumbnailPostId;
   bool _isSearching = false;
   late String userId;
   String? _selectedSortOption;
   String? _currentLocation = 'Toàn quốc'; // Giá trị mặc định
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _feedScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _homeTrace = homePerformanceEnabled ? HomeLoadTrace() : null;
     userId = widget.uid;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<PostProvider>(context, listen: false).fetchPosts();
-      Provider.of<BrandProvider>(context, listen: false).fetchBrands();
+    _feedScrollController.addListener(() {
+      if (_feedScrollController.position.pixels > 0 &&
+          _feedScrollController.position.extentAfter < 300) {
+        _homeTrace?.finish('interacted');
+        Future.microtask(() {
+          if (!mounted) return;
+          final provider = context.read<PostProvider>();
+          if (provider.loadMoreError == null) provider.loadMore();
+        });
+      }
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _homeTrace?.mark('shell_frame');
+      if (_homeTrace == null) {
+        Provider.of<PostProvider>(context, listen: false).fetchPosts();
+        Provider.of<BrandProvider>(context, listen: false).fetchBrands();
+      } else {
+        _loadInitialPosts();
+        _loadInitialBrands();
+      }
+    });
+  }
+
+  Future<void> _loadInitialPosts() async {
+    final provider = Provider.of<PostProvider>(context, listen: false);
+    await provider.fetchPosts(trace: _homeTrace);
+    if (!mounted) return;
+    for (final item in provider.posts) {
+      if (item.imageUrls.isNotEmpty) {
+        _firstThumbnailPostId = item.post.id;
+        break;
+      }
+    }
+    if (_firstThumbnailPostId == null) _homeTrace?.noThumbnail();
+    setState(() => _initialPostsSettled = true);
+  }
+
+  Future<void> _loadInitialBrands() async {
+    await Provider.of<BrandProvider>(context, listen: false).fetchBrands(trace: _homeTrace);
+    if (!mounted) return;
+    _homeTrace?.mark('brands_settled');
+    setState(() => _initialBrandsSettled = true);
   }
 
   @override
   void dispose() {
+    _feedScrollController.dispose();
+    _homeTrace?.finish('abandoned');
     _searchController.dispose();
     super.dispose();
   }
 
   // Hàm này sẽ được gọi khi người dùng nhấn Enter trên bàn phím
   void _onSearchSubmitted(String query) async { // Thêm async
+    _homeTrace?.finish('interacted');
     setState(() {
       _isSearching = true; // Bắt đầu hiển thị loading
     });
     // Đảm bảo PostProvider có hàm searchPosts và hàm đó có thể được await
     await Provider.of<PostProvider>(context, listen: false).searchPosts(query);
+    if (!mounted) return;
     setState(() {
       _isSearching = false; // Kết thúc loading
     });
@@ -57,6 +108,7 @@ class _BuyScreenState extends State<BuyScreen> {
 
 
   Future<void> _showFilterModal(BuildContext context) async {
+    _homeTrace?.finish('interacted');
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -73,6 +125,7 @@ class _BuyScreenState extends State<BuyScreen> {
 
   // Phương thức mới để hiển thị màn hình chọn địa điểm
   Future<void> _showLocationFilter(BuildContext context) async {
+    _homeTrace?.finish('interacted');
     final selectedProvince = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true, // Cho phép kéo modal lên hết màn hình
@@ -91,6 +144,11 @@ class _BuyScreenState extends State<BuyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_initialPostsSettled && _initialBrandsSettled && _homeTrace?.isClosed == false) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _homeTrace?.contentFrame();
+      });
+    }
     final posts = Provider.of<PostProvider>(context).posts;
     List<PostWithCarAndImages> sortedPosts = List.from(posts);
 
@@ -109,6 +167,7 @@ class _BuyScreenState extends State<BuyScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: CustomScrollView(
+        controller: _feedScrollController,
         // Không cần controller nữa nếu AppBar được pinned
         // controller: _scrollController,
         slivers: <Widget>[
@@ -251,12 +310,32 @@ class _BuyScreenState extends State<BuyScreen> {
                       color: Colors.grey[100], // Màu nền của thanh phân cách
                       margin: const EdgeInsets.symmetric(vertical: 8), // Khoảng cách trên dưới
                     ),
-                    if (_isSearching) // Nếu đang tìm kiếm...
+                    if (_isSearching || context.watch<PostProvider>().isLoading)
                       const Center(child: CircularProgressIndicator())
+                    else if (context.watch<PostProvider>().errorMessage != null)
+                      Column(children: [
+                        const Text('Không tải được danh sách xe.'),
+                        TextButton(onPressed: () => context.read<PostProvider>().fetchPosts(), child: const Text('Thử lại')),
+                      ])
                     else if (posts.isEmpty) // ...và không tìm kiếm, nhưng danh sách rỗng
                       const Center(child: Text('Không tìm thấy bài đăng nào.'))
                     else // ...và không tìm kiếm, và có bài đăng
                     _buildPostList(sortedPosts),
+                    if (_selectedSortOption != null && context.watch<PostProvider>().hasMore)
+                      Text('Sắp xếp trong ${posts.length} tin đã tải. Chọn xem thêm để tải các tin tiếp theo.'),
+                    Consumer<PostProvider>(builder: (context, provider, child) {
+                      if (provider.isLoadingMore) return const Center(child: CircularProgressIndicator());
+                      if (provider.loadMoreError != null) {
+                        return TextButton(onPressed: provider.loadMore, child: const Text('Tải thêm thất bại — thử lại'));
+                      }
+                      if (provider.hasMore && !provider.isLoading && !_isSearching) {
+                        return TextButton(onPressed: () {
+                          _homeTrace?.finish('interacted');
+                          provider.loadMore();
+                        }, child: const Text('Xem thêm xe'));
+                      }
+                      return const SizedBox.shrink();
+                    }),
                     const SizedBox(height: 80), // Khoảng trống cho BottomNavigationBar
                   ],
                 ),
@@ -272,12 +351,13 @@ class _BuyScreenState extends State<BuyScreen> {
   Widget _buildSortDropdown() {
     return DropdownButton<String>(
       value: _selectedSortOption,
-      hint: const Text('Sắp xếp tin rao', style: TextStyle(fontSize: 16, color: Colors.black)),
+      hint: const Text('Sắp xếp tin đã tải', style: TextStyle(fontSize: 16, color: Colors.black)),
       icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
       elevation: 2,
       style: const TextStyle(color: Colors.black, fontSize: 16),
       underline: Container(height: 1, color: Colors.grey[300]),
       onChanged: (String? newValue) {
+        _homeTrace?.finish('interacted');
         setState(() {
           _selectedSortOption = newValue;
         });
@@ -370,6 +450,7 @@ class _BuyScreenState extends State<BuyScreen> {
 
         return InkWell( // Sử dụng InkWell trực tiếp để có hiệu ứng onTap
           onTap: () {
+            _homeTrace?.finish('interacted');
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -427,11 +508,10 @@ class _BuyScreenState extends State<BuyScreen> {
                           flex: 2,
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              imageUrl,
-                              width: double.infinity,
-                              height: 70,
-                              fit: BoxFit.cover,
+                            child: HomeMeasuredImage(
+                              image: NetworkImage(imageUrl),
+                              trace: _initialPostsSettled && post.id == _firstThumbnailPostId
+                                  ? _homeTrace : null,
                             ),
                           ),
                         ),

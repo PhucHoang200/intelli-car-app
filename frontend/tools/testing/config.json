@@ -1,0 +1,15 @@
+{
+  "backend_path": "C:/BackEnd_API_Online_Car_App_Flutter/onlinecarmarketplaceapp",
+  "python": "",
+  "flutter": "flutter",
+  "timeout_seconds": 600,
+  "build_timeout_seconds": 1200,
+  "emulator_timeout_seconds": 600,
+  "api_url": "http://127.0.0.1:8000/onlinecar/search-posts/",
+  "api_query": "",
+  "api_timeout_seconds": 15,
+  "cloudinary_image_url": "",
+  "load_requests": 20,
+  "load_workers": 2,
+  "load_max_p95_ms": 2000
+}

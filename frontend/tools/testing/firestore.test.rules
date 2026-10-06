@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Test harness only. These are NOT the application's production rules.
+    // Admin SDK integration tests bypass rules; unauthenticated REST must fail.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
