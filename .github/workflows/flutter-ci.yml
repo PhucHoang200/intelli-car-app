@@ -17,18 +17,15 @@ jobs:
         working-directory: frontend
 
     steps:
-      # 1. Checkout source code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Setup Java Environment (BẮT BUỘC để tránh lỗi Kotlin/Gradle)
       - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # 3. Setup Flutter SDK
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -36,35 +33,47 @@ jobs:
           channel: stable
           cache: true
 
-      # 4. Clean Flutter workspace
       - name: Clean Flutter
         run: flutter clean
 
-      # 5. Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # 6. Inject Firebase config (Android)
+      # BƯỚC MỚI: Tự động ghi đè Kotlin version trong Gradle files ngay trên CI
+      - name: Override Kotlin Version for CI
+        run: |
+          # 1. Nếu dự án dùng settings.gradle / settings.gradle.kts (Flutter 3.19+)
+          if [ -f android/settings.gradle.kts ]; then
+            sed -i -E 's/id\("org.jetbrains.kotlin.android"\) version "[^"]+"/id("org.jetbrains.kotlin.android") version "2.1.0"/' android/settings.gradle.kts
+          fi
+          if [ -f android/settings.gradle ]; then
+            sed -i -E 's/id "org.jetbrains.kotlin.android" version "[^"]+"/id "org.jetbrains.kotlin.android" version "2.1.0"/' android/settings.gradle
+          fi
+
+          # 2. Nếu dự án cũ dùng ext.kotlin_version trong build.gradle / build.gradle.kts
+          if [ -f android/build.gradle.kts ]; then
+            sed -i -E 's/ext\.kotlin_version = "[^"]+"/ext.kotlin_version = "2.1.0"/' android/build.gradle.kts
+          fi
+          if [ -f android/build.gradle ]; then
+            sed -i -E "s/ext\.kotlin_version = '[^']+'/ext.kotlin_version = '2.1.0'/" android/build.gradle
+          fi
+
       - name: Inject google-services.json
         run: |
           mkdir -p android/app
           echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 --decode > android/app/google-services.json
 
-      # 7. Analyze project
       - name: Analyze project
         run: flutter analyze || true
 
-      # 8. Run tests (Chỉ chạy khi có Pull Request)
       - name: Run tests
         if: github.event_name == 'pull_request'
         run: flutter test || true
 
-      # 9. Build APK debug (Chỉ chạy khi push main)
       - name: Build APK (debug)
         if: github.event_name == 'push'
         run: flutter build apk --debug
 
-      # 10. Upload APK artifact (Đã sửa lại đường dẫn path đúng ngữ cảnh root)
       - name: Upload APK artifact
         if: github.event_name == 'push'
         uses: actions/upload-artifact@v4
