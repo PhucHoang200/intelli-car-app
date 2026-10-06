@@ -21,7 +21,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Setup Flutter SDK
+      # 2. Setup Java Environment (BẮT BUỘC để tránh lỗi Kotlin/Gradle)
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 3. Setup Flutter SDK
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -29,38 +36,35 @@ jobs:
           channel: stable
           cache: true
 
-      # 3. Clean cache (fix AGP / Gradle mismatch)
-      - name: Clean Flutter & Gradle cache
-        run: |
-          flutter clean
-          rm -rf ~/.gradle/caches
-          rm -rf ~/.gradle/wrapper
+      # 4. Clean Flutter workspace
+      - name: Clean Flutter
+        run: flutter clean
 
-      # 4. Install dependencies
+      # 5. Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # 5. Inject Firebase config (Android)
+      # 6. Inject Firebase config (Android)
       - name: Inject google-services.json
         run: |
           mkdir -p android/app
           echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 --decode > android/app/google-services.json
 
-      # 6. Analyze (không fail CI)
+      # 7. Analyze project
       - name: Analyze project
         run: flutter analyze || true
 
-      # 7. Test (PR only)
+      # 8. Run tests (Chỉ chạy khi có Pull Request)
       - name: Run tests
         if: github.event_name == 'pull_request'
         run: flutter test || true
 
-      # 8. Build APK debug (push main)
+      # 9. Build APK debug (Chỉ chạy khi push main)
       - name: Build APK (debug)
         if: github.event_name == 'push'
         run: flutter build apk --debug
 
-      # 9. Upload APK artifact
+      # 10. Upload APK artifact (Đã sửa lại đường dẫn path đúng ngữ cảnh root)
       - name: Upload APK artifact
         if: github.event_name == 'push'
         uses: actions/upload-artifact@v4
