@@ -36,14 +36,38 @@ jobs:
       - name: Clean Flutter
         run: flutter clean
 
-      - name: Force Upgrade Kotlin Version on CI
+      - name: Force Upgrade Kotlin Version to 2.3.0 on CI
         run: |
-          find android/ -type f \( -name "settings.gradle*" -o -name "build.gradle*" \) -exec sed -i -E \
-            -e 's/id\s*\("org.jetbrains.kotlin.android"\)\s*version\s*"[^"]+"/id("org.jetbrains.kotlin.android") version "2.1.0"/g' \
-            -e 's/id\s*'\''org.jetbrains.kotlin.android'\''\s*version\s*'\''[^'\'']+'\''/id "org.jetbrains.kotlin.android" version "2.1.0"/g' \
-            -e 's/ext\.kotlin_version\s*=\s*["'\''][^"'\'']+["'\'']/ext.kotlin_version = "2.1.0"/g' {} +
-          echo "" >> android/gradle.properties
-          echo "kotlinVersion=2.1.0" >> android/gradle.properties
+          # Ép phiên bản Kotlin 2.3.0 qua file gradle.properties
+          echo "kotlinVersion=2.3.0" >> android/gradle.properties
+          
+          # Ép tất cả các module (bao gồm cả plugin của bên thứ 3) sử dụng đúng Kotlin 2.3.0
+          # Bằng cách nối thêm cấu hình vào cuối file android/build.gradle
+          cat << 'EOF' >> android/build.gradle
+
+          allprojects {
+              configurations.all {
+                  resolutionStrategy {
+                      eachDependency { details ->
+                          if (details.requested.group == 'org.jetbrains.kotlin' && details.requested.name.startsWith('kotlin-stdlib')) {
+                              details.useVersion '2.3.0'
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # Nâng cấp classpath Kotlin plugin lên 2.3.0 cho build script (Dự án cũ)
+          sed -i -E "s/ext\.kotlin_version\s*=\s*['\"][^'\"]+['\"]/ext.kotlin_version = '2.3.0'/g" android/build.gradle
+          
+          # Nâng cấp ID plugin Kotlin lên 2.3.0 (Dự án mới dùng settings.gradle)
+          if [ -f android/settings.gradle ]; then
+            sed -i -E 's/id\s*"org.jetbrains.kotlin.android"\s*version\s*"[^"]+"/id "org.jetbrains.kotlin.android" version "2.3.0"/g' android/settings.gradle
+          fi
+          if [ -f android/settings.gradle.kts ]; then
+            sed -i -E 's/id\s*\("org.jetbrains.kotlin.android"\)\s*version\s*"[^"]+"/id("org.jetbrains.kotlin.android") version "2.3.0"/g' android/settings.gradle.kts
+          fi
 
       - name: Install dependencies
         run: flutter pub get
@@ -60,11 +84,8 @@ jobs:
         if: github.event_name == 'pull_request'
         run: flutter test || true
 
-      # SỬA LỖI TẠI ĐÂY: Xóa `-- -PkotlinVersion=2.1.0` và truyền qua env GRADLE_OPTS
       - name: Build APK (debug)
         if: github.event_name == 'push'
-        env:
-          GRADLE_OPTS: "-Dorg.gradle.project.kotlinVersion=2.1.0"
         run: flutter build apk --debug
 
       - name: Upload APK artifact
