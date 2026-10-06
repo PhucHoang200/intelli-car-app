@@ -42,6 +42,7 @@ jobs:
             -e 's/id\s*\("org.jetbrains.kotlin.android"\)\s*version\s*"[^"]+"/id("org.jetbrains.kotlin.android") version "2.1.0"/g' \
             -e 's/id\s*'\''org.jetbrains.kotlin.android'\''\s*version\s*'\''[^'\'']+'\''/id "org.jetbrains.kotlin.android" version "2.1.0"/g' \
             -e 's/ext\.kotlin_version\s*=\s*["'\''][^"'\'']+["'\'']/ext.kotlin_version = "2.1.0"/g' {} +
+          echo "" >> android/gradle.properties
           echo "kotlinVersion=2.1.0" >> android/gradle.properties
 
       - name: Install dependencies
@@ -59,9 +60,12 @@ jobs:
         if: github.event_name == 'pull_request'
         run: flutter test || true
 
+      # SỬA LỖI TẠI ĐÂY: Xóa `-- -PkotlinVersion=2.1.0` và truyền qua env GRADLE_OPTS
       - name: Build APK (debug)
         if: github.event_name == 'push'
-        run: flutter build apk --debug -- -PkotlinVersion=2.1.0
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.project.kotlinVersion=2.1.0"
+        run: flutter build apk --debug
 
       - name: Upload APK artifact
         if: github.event_name == 'push'
