@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:online_car_marketplace_app/services/home_load_trace.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:online_car_marketplace_app/models/post_model.dart';
@@ -6,9 +7,14 @@ import 'package:online_car_marketplace_app/models/car_model.dart';
 import 'package:online_car_marketplace_app/models/model_model.dart';
 import 'package:online_car_marketplace_app/models/post_with_car_and_images.dart';
 import '../models/brand_model.dart';
+import 'home_feed_loader.dart';
+import 'firestore_home_feed_source.dart';
 
 class PostRepository {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseFirestore? _database;
+  FirebaseFirestore get _firestore => _database ??= FirebaseFirestore.instance;
+  Future<HomeFeedPage> getHomePage({String? after, HomeLoadTrace? trace}) =>
+      HomeFeedLoader(FirestoreHomeFeedSource(_firestore)).load(after: after, trace: trace);
   final String _djangoApiBaseUrl = 'http://10.0.2.2:8000/onlinecar';
 
   Future<void> addPost(Post post) async {
@@ -48,8 +54,10 @@ class PostRepository {
     return snapshot.docs.map((doc) => Post.fromMap(doc.data())).toList();
   }
 
-  Future<List<Map<String, dynamic>>> getPostsWithCarAndImages() async {
-    final postsSnapshot = await _firestore.collection('posts').get();
+  Future<List<Map<String, dynamic>>> getPostsWithCarAndImages({HomeLoadTrace? trace}) async {
+    Future<T> measured<T>(String name, Future<T> Function() action) =>
+        trace == null ? action() : trace.measure(name, action);
+    final postsSnapshot = await measured('posts_sdk', () => _firestore.collection('posts').get());
     List<Map<String, dynamic>> results = [];
 
     for (var doc in postsSnapshot.docs) {
@@ -63,7 +71,7 @@ class PostRepository {
       List<String> imageUrls = [];
 
       // Lấy thông tin xe
-      final carDoc = await _firestore.collection('cars').doc(post.carId.toString()).get();
+      final carDoc = await measured('cars_sdk', () => _firestore.collection('cars').doc(post.carId.toString()).get());
       if (carDoc.exists) {
         final carData = carDoc.data() as Map<String, dynamic>;
         car = Car.fromMap(carData);
@@ -72,7 +80,7 @@ class PostRepository {
         // Lấy tên model từ collection 'models' dựa vào car.modelId
         if (car?.modelId != null) {
           try {
-            final modelDoc = await _firestore.collection('models').doc(car!.modelId.toString()).get();
+            final modelDoc = await measured('models_sdk', () => _firestore.collection('models').doc(car!.modelId.toString()).get());
             if (modelDoc.exists) {
               final modelData = modelDoc.data() as Map<String, dynamic>;
               carModelName = CarModel.fromMap(modelData).name; // <-- Lấy name từ CarModel
@@ -89,7 +97,7 @@ class PostRepository {
       if (post.userId != null) {
         final String userId = post.userId!;
         try {
-          final userDoc = await _firestore.collection('users').doc(userId).get();
+          final userDoc = await measured('users_sdk', () => _firestore.collection('users').doc(userId).get());
           if (userDoc.exists) {
             final userData = userDoc.data() as Map<String, dynamic>;
             sellerName = userData['name'] as String?;
@@ -112,10 +120,10 @@ class PostRepository {
       }
 
       // Lấy ảnh
-      final imagesSnapshot = await _firestore
+      final imagesSnapshot = await measured('images_metadata_sdk', () => _firestore
           .collection('images')
           .where('carId', isEqualTo: post.carId)
-          .get();
+          .get());
       imageUrls = imagesSnapshot.docs.map((e) => e['url'] as String).toList();
 
       results.add({

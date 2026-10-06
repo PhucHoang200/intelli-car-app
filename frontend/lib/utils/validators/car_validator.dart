@@ -7,7 +7,7 @@ class CarValidator {
   }
 
   static String validateTransmission(String transmission) {
-    const validTransmissions = ['Tự động', 'Số sàn'];
+    const validTransmissions = ['tự động', 'số sàn'];
     if (!validTransmissions.contains(transmission.toLowerCase())) {
       throw Exception('Hộp số không hợp lệ (chỉ chấp nhận: tự động, số sàn)');
     }
@@ -15,7 +15,7 @@ class CarValidator {
   }
 
   static String validateFuelType(String fuelType) {
-    const validFuelTypes = ['Xăng', 'Dầu', 'Điện', 'Hybrid'];
+    const validFuelTypes = ['xăng', 'dầu', 'điện', 'hybrid'];
     if (!validFuelTypes.contains(fuelType.toLowerCase())) {
       throw Exception('Loại nhiên liệu không hợp lệ (chỉ chấp nhận: xăng, dầu, điện, hybrid)');
     }

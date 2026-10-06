@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:online_car_marketplace_app/services/home_load_trace.dart';
 import 'package:online_car_marketplace_app/models/brand_model.dart';
 import 'package:online_car_marketplace_app/repositories/brand_repository.dart';
 
@@ -11,12 +12,14 @@ class BrandProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
-  Future<void> fetchBrands() async {
+  Future<void> fetchBrands({HomeLoadTrace? trace}) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      final fetchedBrands = await _brandRepository.getBrands();
+      final fetchedBrands = trace == null
+          ? await _brandRepository.getBrands()
+          : await trace.measure('brands_sdk', _brandRepository.getBrands);
       Future.microtask(() {
         _brands = fetchedBrands;
         _isLoading = false;

@@ -1,12 +1,33 @@
-
 import 'package:flutter/material.dart';
+import 'package:online_car_marketplace_app/services/home_load_trace.dart';
 import 'package:online_car_marketplace_app/models/post_model.dart';
 import 'package:online_car_marketplace_app/repositories/post_repository.dart';
 import 'package:online_car_marketplace_app/models/post_with_car_and_images.dart';
-import 'package:online_car_marketplace_app/models/car_model.dart';
+import 'package:online_car_marketplace_app/repositories/home_feed_loader.dart';
 
 class PostProvider with ChangeNotifier {
-  final PostRepository _postRepository = PostRepository();
+  PostProvider({PostRepository? repository})
+      : _postRepository = repository ?? PostRepository();
+  final PostRepository _postRepository;
+  String? _cursor;
+  bool _hasMore = false;
+  bool get hasMore => _hasMore;
+  bool _isLoadingMore = false;
+  bool get isLoadingMore => _isLoadingMore;
+  String? _loadMoreError;
+  String? get loadMoreError => _loadMoreError;
+  bool _searchMode = false;
+  int _generation = 0;
+  bool _disposed = false;
+  bool _current(int generation) => !_disposed && generation == _generation;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _generation++;
+    super.dispose();
+  }
+
   List<PostWithCarAndImages> _posts = [];
   List<PostWithCarAndImages> get posts => _posts;
   bool _isLoading = false;
@@ -18,31 +39,70 @@ class PostProvider with ChangeNotifier {
   String _locationFilter = ''; // Lưu trữ tỉnh/thành phố được chọn
   String get currentLocationFilter => _locationFilter; // Getter cho UI
 
-  Future<void> fetchPosts() async {
+  Future<void> fetchPosts({HomeLoadTrace? trace}) async {
+    final generation = ++_generation;
+    _searchMode = false;
+    _cursor = null;
+    _hasMore = false;
+    _isLoadingMore = false;
+    _loadMoreError = null;
+    trace?.mark('posts_fetch_start');
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final rawData = await _postRepository.getPostsWithCarAndImages();
-      _posts = rawData.map((item) {
-        return PostWithCarAndImages(
-          post: item['post'],
-          car: item['car'],
-          sellerName: item['sellerName'] as String?,
-          sellerPhone: item['sellerPhone'] as String?,
-          sellerAddress: item['sellerAddress'] as String?,
-          carLocation: item['carLocation'] as String?,
-          imageUrls: List<String>.from(item['images']),
-          carModelName: item['carModelName'] as String?,
-        );
-      }).toList();
+      final page = await _postRepository.getHomePage(trace: trace);
+      if (!_current(generation)) {
+        trace?.finish('superseded');
+        return;
+      }
+      _posts = page.items;
+      _cursor = page.cursor;
+      _hasMore = page.hasMore;
+      trace?.postsSettled(count: _posts.length, succeeded: true);
     } catch (error) {
+      if (!_current(generation)) {
+        trace?.finish('superseded');
+        return;
+      }
       _errorMessage = error.toString();
       _posts = [];
+      trace?.postsSettled(count: 0, succeeded: false);
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (_current(generation)) {
+        _isLoading = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> loadMore() async {
+    if (_disposed || _isLoading || _isLoadingMore || !_hasMore || _searchMode) {
+      return;
+    }
+    final generation = _generation;
+    _isLoadingMore = true;
+    _loadMoreError = null;
+    notifyListeners();
+    try {
+      final HomeFeedPage page =
+          await _postRepository.getHomePage(after: _cursor);
+      if (!_current(generation)) return;
+      final ids = _posts.map((item) => item.post.id).toSet();
+      _posts = [
+        ..._posts,
+        ...page.items.where((item) => ids.add(item.post.id))
+      ];
+      _cursor = page.cursor;
+      _hasMore = page.hasMore;
+    } catch (error) {
+      if (_current(generation)) _loadMoreError = error.toString();
+    } finally {
+      if (_current(generation)) {
+        _isLoadingMore = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -52,6 +112,12 @@ class PostProvider with ChangeNotifier {
   }
 
   void clearPosts() {
+    _generation++;
+    _cursor = null;
+    _hasMore = false;
+    _searchMode = false;
+    _isLoading = _isLoadingMore = false;
+    _errorMessage = _loadMoreError = null;
     _posts = [];
     _locationFilter = '';
     notifyListeners();
@@ -59,7 +125,8 @@ class PostProvider with ChangeNotifier {
 
   Future<PostWithCarAndImages?> getPostWithDetailsById(String postId) async {
     try {
-      final postWithDetails = await _postRepository.getPostWithCarAndImagesById(postId);
+      final postWithDetails =
+          await _postRepository.getPostWithCarAndImagesById(postId);
       return postWithDetails;
     } catch (error) {
       print('Error fetching post details by ID: $error');
@@ -69,6 +136,15 @@ class PostProvider with ChangeNotifier {
 
   // Phương thức mới để tìm kiếm, giờ trả về Future<void>
   Future<void> searchPosts(String query) async {
+    if (query.trim().isEmpty) {
+      await fetchPosts();
+      return;
+    }
+    final generation = ++_generation;
+    _searchMode = true;
+    _hasMore = false;
+    _isLoadingMore = false;
+    _errorMessage = _loadMoreError = null;
     _isLoading = true; // Bật loading trong provider
     notifyListeners(); // Thông báo cho Consumers rằng trạng thái đã thay đổi
 
@@ -77,15 +153,20 @@ class PostProvider with ChangeNotifier {
       // Bạn chỉ cần take(1) nếu bạn mong đợi Stream chỉ phát ra một lần cho kết quả tìm kiếm
       // Hoặc xử lý theo cách Stream có thể phát ra nhiều lần (ví dụ: Live search)
       await _postRepository.searchPosts(query).first.then((postList) {
+        if (!_current(generation)) return;
         _posts = postList;
         _isLoading = false; // Tắt loading khi dữ liệu đã được nhận
         notifyListeners(); // Cập nhật Consumers với dữ liệu mới
       }).catchError((error) {
+        if (!_current(generation)) return;
+        _errorMessage = error.toString();
         _isLoading = false; // Tắt loading nếu có lỗi
         print('Error searching posts: $error');
         notifyListeners(); // Thông báo cho Consumers ngay cả khi có lỗi
       });
     } catch (e) {
+      if (!_current(generation)) return;
+      _errorMessage = e.toString();
       _isLoading = false; // Tắt loading nếu có lỗi ở mức cao hơn
       print('Error during searchPosts call: $e');
       notifyListeners();

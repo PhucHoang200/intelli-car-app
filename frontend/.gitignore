@@ -1,0 +1,3 @@
+# Generated testing artifacts and machine-specific configuration
+/test-results/
+/tools/testing/config.local.json
