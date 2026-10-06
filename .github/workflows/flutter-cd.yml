@@ -14,11 +14,18 @@ jobs:
         working-directory: frontend
 
     steps:
-      # 1. Checkout source
+      # 1. Checkout source code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Setup Flutter
+      # 2. Setup Java Environment (Tránh lỗi biên dịch Kotlin/Gradle)
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 3. Setup Flutter SDK
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -26,29 +33,25 @@ jobs:
           channel: stable
           cache: true
 
-      # 3. Clean cache (an toàn khi build release)
-      - name: Clean Flutter & Gradle cache
-        run: |
-          flutter clean
-          rm -rf ~/.gradle/caches
-          rm -rf ~/.gradle/wrapper
+      # 4. Clean project trước khi build release
+      - name: Clean Flutter
+        run: flutter clean
 
-      # 4. Install dependencies
+      # 5. Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # 5. Inject google-services.json (Android)
+      # 6. Inject Firebase config
       - name: Inject Firebase config
         run: |
           mkdir -p android/app
-          echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" \
-            | base64 --decode > android/app/google-services.json
+          echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 --decode > android/app/google-services.json
 
-      # 6. Build APK release
+      # 7. Build APK release
       - name: Build APK (release)
         run: flutter build apk --release
 
-      # 7. Upload APK to Firebase App Distribution
+      # 8. Deploy to Firebase App Distribution
       - name: Deploy to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
