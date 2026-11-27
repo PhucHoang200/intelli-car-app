@@ -1,5 +1,12 @@
 # Báo cáo và nhật ký kiểm thử frontend
 
+## Xuất báo cáo PDF tổng hợp (2026-11-26)
+
+- Tổng hợp bằng chứng lịch sử 02-03/10/2026, không chạy lại test ứng dụng trong lượt xuất tài liệu.
+- Tạo `output/pdf/bao_cao_kiem_thu_va_toi_uu_homepage.pdf` (15 trang): lỗi đã xác nhận, rủi ro chưa kiểm chứng, trở ngại môi trường, kiến trúc/workflow trước và sau, mức cải thiện cùng giới hạn mẫu đo, nguồn và toàn bộ 195 diagnostics analyzer ban đầu.
+- Mã tái tạo: `tools/testing/build_engineering_report.py`, dùng ReportLab và font Arial nhúng hỗ trợ tiếng Việt.
+- Kiểm tra: render bằng Poppler, xem bố cục các trang và chỉnh bảng tổng hợp để không tràn sang trang lẻ; pypdf xác nhận 15 trang, nội dung tiếng Việt, số liệu 76,4% và diagnostic cuối 195. Không thay đổi mã nghiệp vụ.
+
 Ngày bắt đầu: 2026-10-02. Phạm vi: thư mục `frontend` (workspace hiện tại).
 
 ## Mục tiêu và nguyên tắc
